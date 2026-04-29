@@ -37,6 +37,64 @@
       -webkit-text-fill-color: transparent;
     }
 
+    /* Notification Toast */
+    #notification {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: #1A1A2E;
+      color: var(--accent);
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(107, 78, 255, 0.4);
+      border: 1px solid var(--accent);
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 3000;
+      font-weight: 500;
+      min-width: 280px;
+    }
+
+    /* Logs Panel */
+    #logsPanel {
+      position: fixed;
+      top: 0; right: -420px;
+      width: 420px;
+      height: 100vh;
+      background: #161625;
+      border-left: 3px solid var(--primary);
+      padding: 20px;
+      overflow-y: auto;
+      transition: right 0.4s ease;
+      z-index: 2500;
+    }
+
+    #logsPanel.open { right: 0; }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    .log-entry {
+      background: #1F1F2E;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      font-size: 0.88rem;
+      border-left: 4px solid var(--primary);
+    }
+
+    .log-time {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+
     .savings-cart, .profit-card {
       border-radius: 28px;
       padding: 28px 24px;
@@ -101,12 +159,7 @@
     }
     th { color: var(--text-light); font-size: 0.9rem; }
 
-    .status-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-    }
+    .status-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
     .status-btn {
       padding: 6px 14px;
@@ -181,11 +234,31 @@
   </style>
 </head>
 <body>
+  <!-- Notification -->
+  <div id="notification">
+    <span id="notificationText"></span>
+  </div>
+
+  <!-- Logs Panel -->
+  <div id="logsPanel">
+    <div class="log-header">
+      <h2>Activity Logs</h2>
+      <button onclick="clearLogs()" style="background:#d9534f; color:white; border:none; padding:6px 12px; border-radius:8px; cursor:pointer;">Clear</button>
+    </div>
+    <div id="logsContainer"></div>
+  </div>
+
   <div class="container">
     <header>
       <div class="logo">ASA</div>
       <p style="color:#A0A0CC; margin-top:4px;">Savings Tracker</p>
     </header>
+
+    <div style="text-align:right; margin-bottom:12px;">
+      <button onclick="toggleLogs()" style="background:#33334D; color:white; border:none; padding:10px 18px; border-radius:9999px; cursor:pointer;">
+        📜 View Logs
+      </button>
+    </div>
 
     <!-- Total Savings -->
     <div class="savings-cart">
@@ -224,11 +297,10 @@
   <div class="modal" id="addModal">
     <div class="modal-content">
       <h2>Add New Savings Record</h2>
-      
       <label>Record Name</label>
       <input type="text" id="recordName" value="Savings Record 4">
 
-      <label>Week 1 Date (MM/DD/YY) - You can change this</label>
+      <label>Week 1 Date (MM/DD/YY)</label>
       <input type="text" id="startDate" placeholder="05/04/26">
 
       <label>Number of Weeks</label>
@@ -280,44 +352,81 @@
   <script>
     let records = [];
     let overallProfit = 912;
+    let logs = [];
 
     function getPHDate() {
       const options = { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' };
       return new Date().toLocaleDateString('en-US', options);
     }
 
-    function getNextMonday() {
-      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-      let days = (1 - now.getDay() + 7) % 7;
-      if (days === 0) days = 7;
-      const next = new Date(now);
-      next.setDate(now.getDate() + days);
-      return next.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
+    function getCurrentPHTime() {
+      return new Date().toLocaleString('en-US', { 
+        timeZone: 'Asia/Manila',
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+    }
+
+    function addLog(action) {
+      logs.unshift({
+        time: getCurrentPHTime(),
+        action: action
+      });
+      if (logs.length > 100) logs.pop();
+      localStorage.setItem('asaLogs', JSON.stringify(logs));
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+      let html = '';
+      logs.forEach(log => {
+        html += `
+          <div class="log-entry">
+            <div class="log-time">${log.time}</div>
+            <div>${log.action}</div>
+          </div>`;
+      });
+      container.innerHTML = html || '<p style="color:#666; text-align:center; padding:20px;">No activity logs yet</p>';
+    }
+
+    function toggleLogs() {
+      document.getElementById('logsPanel').classList.toggle('open');
+    }
+
+    function clearLogs() {
+      if (confirm("Clear all activity logs?")) {
+        logs = [];
+        localStorage.setItem('asaLogs', JSON.stringify(logs));
+        renderLogs();
+      }
+    }
+
+    function showNotification(message) {
+      const notif = document.getElementById('notification');
+      document.getElementById('notificationText').innerHTML = message;
+      notif.style.display = 'flex';
+      setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => { notif.style.display = 'none'; notif.style.opacity = '1'; }, 300);
+      }, 2500);
     }
 
     function loadData() {
-      const saved = localStorage.getItem('asaSavingsRecords');
-      if (saved) records = JSON.parse(saved);
-      else {
-        records = [{
-          id: 1,
-          name: "Savings Record 1",
-          startDate: "04/01/26",
-          weeks: [
-            { week: 1, target: 250, received: 250, status: "success", missing: 0, date: "" },
-            { week: 2, target: 250, received: 200, status: "warning", missing: 50, date: "" },
-            { week: 3, target: 250, received: 250, status: "success", missing: 0, date: "" },
-            { week: 4, target: 250, received: 250, status: "success", missing: 0, date: "" }
-          ]
-        }];
-        saveRecords();
-      }
+      const savedRecords = localStorage.getItem('asaSavingsRecords');
+      if (savedRecords) records = JSON.parse(savedRecords);
 
       const savedProfit = localStorage.getItem('asaOverallProfit');
       if (savedProfit) overallProfit = parseFloat(savedProfit);
 
+      const savedLogs = localStorage.getItem('asaLogs');
+      if (savedLogs) logs = JSON.parse(savedLogs);
+
       document.getElementById('asOfDate').textContent = `As of ${getPHDate()}`;
       renderAllRecords();
+      renderLogs();
     }
 
     function saveRecords() {
@@ -372,7 +481,7 @@
           <table>
             <tr>
               <th>Week</th>
-              <th>Date (Editable)</th>
+              <th>Date</th>
               <th>Target</th>
               <th>Received</th>
               <th>Status</th>
@@ -409,21 +518,29 @@
       document.getElementById('overallProfit').textContent = `₱${overallProfit}`;
     }
 
-    // Update functions
+    // Update Functions
     function updateReceived(recordId, weekNum, value) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
-      if (week) week.received = parseFloat(value) || 0;
-      saveRecords();
-      renderAllRecords();
+      if (week) {
+        week.received = parseFloat(value) || 0;
+        saveRecords();
+        renderAllRecords();
+        showNotification(`Week ${weekNum} received updated`);
+        addLog(`Updated received amount for Week ${weekNum} in <strong>${record.name}</strong>`);
+      }
     }
 
     function updateWeekDate(recordId, weekNum, newDate) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
-      if (week) week.date = newDate.trim();
-      saveRecords();
-      renderAllRecords();
+      if (week) {
+        week.date = newDate.trim();
+        saveRecords();
+        renderAllRecords();
+        showNotification(`Week ${weekNum} date updated`);
+        addLog(`Changed date for Week ${weekNum} in <strong>${record.name}</strong>`);
+      }
     }
 
     function updateMissing(recordId, weekNum, value) {
@@ -456,6 +573,8 @@
 
       saveRecords();
       renderAllRecords();
+      showNotification(`Week ${weekNum} status changed`);
+      addLog(`Changed status of Week ${weekNum} to <strong>${newStatus}</strong> in <strong>${record.name}</strong>`);
     }
 
     function showAddModal() {
@@ -473,7 +592,6 @@
       let startDate = document.getElementById('startDate').value.trim();
       const numWeeks = parseInt(document.getElementById('numWeeks').value);
 
-      // Default to next Monday if empty
       if (!startDate) startDate = getNextMonday();
 
       const newRecord = {
@@ -486,7 +604,7 @@
           received: 0,
           status: "pending",
           missing: 0,
-          date: ""   // Will be calculated from startDate
+          date: ""
         }))
       };
 
@@ -494,6 +612,8 @@
       saveRecords();
       renderAllRecords();
       hideAddModal();
+      showNotification(`Record "${name}" created`);
+      addLog(`Created new record: <strong>${name}</strong> (${numWeeks} weeks)`);
     }
 
     function editRecord(id) {
@@ -511,19 +631,25 @@
       const id = parseInt(document.getElementById('editId').value);
       const record = records.find(r => r.id === id);
       if (record) {
+        const oldName = record.name;
         record.name = document.getElementById('editName').value.trim() || record.name;
         record.startDate = document.getElementById('editStartDate').value.trim() || record.startDate;
         saveRecords();
         renderAllRecords();
+        hideEditModal();
+        showNotification("Record updated");
+        addLog(`Edited record: <strong>${oldName}</strong> → <strong>${record.name}</strong>`);
       }
-      hideEditModal();
     }
 
     function deleteRecord(id) {
-      if (confirm("Delete this savings record?")) {
+      const record = records.find(r => r.id === id);
+      if (confirm(`Delete "${record ? record.name : ''}"?`)) {
         records = records.filter(r => r.id !== id);
         saveRecords();
         renderAllRecords();
+        showNotification("Record deleted");
+        addLog(`Deleted record: <strong>${record ? record.name : 'Unknown'}</strong>`);
       }
     }
 
@@ -540,8 +666,19 @@
         overallProfit = val;
         saveProfit();
         renderAllRecords();
+        hideEditProfitModal();
+        showNotification("Overall Profit updated");
+        addLog(`Updated Overall Profit to ₱${val}`);
       }
-      hideEditProfitModal();
+    }
+
+    function getNextMonday() {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+      let days = (1 - now.getDay() + 7) % 7;
+      if (days === 0) days = 7;
+      const next = new Date(now);
+      next.setDate(now.getDate() + days);
+      return next.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
     }
 
     window.onload = loadData;
