@@ -40,7 +40,6 @@
       -webkit-text-fill-color: transparent;
     }
 
-    /* Savings Cart */
     .savings-cart {
       background: linear-gradient(135deg, #1F1F3A, #2A2A4A);
       border-radius: 28px;
@@ -68,7 +67,6 @@
       color: var(--text-light);
     }
 
-    /* Overall Profit Card */
     .profit-card {
       background: linear-gradient(135deg, #1F2A1F, #2A3A2A);
       border-radius: 28px;
@@ -76,7 +74,6 @@
       margin-bottom: 32px;
       border: 1px solid rgba(0, 229, 184, 0.3);
       box-shadow: 0 10px 30px rgba(0, 229, 184, 0.15);
-      position: relative;
     }
 
     .profit-header {
@@ -177,15 +174,8 @@
       border-radius: 16px;
     }
 
-    .summary-label {
-      font-size: 0.85rem;
-      color: var(--text-light);
-    }
-
-    .summary-value {
-      font-size: 1.7rem;
-      font-weight: 700;
-    }
+    .summary-label { font-size: 0.85rem; color: var(--text-light); }
+    .summary-value { font-size: 1.7rem; font-weight: 700; }
 
     /* Modal */
     .modal {
@@ -248,7 +238,7 @@
       <p style="color:#A0A0CC; margin-top:4px;">Savings Tracker</p>
     </header>
 
-    <!-- Total Savings Cart -->
+    <!-- Total Savings Cart (Automated) -->
     <div class="savings-cart">
       <div class="cart-header">
         <div>
@@ -257,7 +247,7 @@
         </div>
         <div style="font-size:2.5rem;">💰</div>
       </div>
-      <div class="as-of" id="asOfDate">As of April 27, 2026</div>
+      <div class="as-of" id="asOfDate">As of April 29, 2026</div>
     </div>
 
     <!-- Overall Profit Card -->
@@ -270,9 +260,6 @@
         <div style="font-size:2rem; color:var(--profit);">📈</div>
       </div>
       <button class="edit-profit-btn" onclick="showEditProfitModal()">✏️ Edit Profit Amount</button>
-      <div style="margin-top:8px; font-size:0.9rem; color:var(--text-light);">
-        Your total correctly saved amount
-      </div>
     </div>
 
     <button class="add-btn" onclick="showAddModal()">
@@ -289,8 +276,8 @@
       <label>Record Name</label>
       <input type="text" id="recordName" value="Savings Record 4">
 
-      <label>Week 1 Date (MM/DD/YY)</label>
-      <input type="text" id="startDate" value="05/01/26">
+      <label>Week 1 Date (MM/DD/YY) — Next Monday</label>
+      <input type="text" id="startDate" readonly>
 
       <div class="modal-buttons">
         <button class="cancel-btn" onclick="hideAddModal()">Cancel</button>
@@ -299,12 +286,12 @@
     </div>
   </div>
 
-  <!-- Edit Overall Profit Modal -->
+  <!-- Edit Profit Modal -->
   <div class="modal" id="editProfitModal">
     <div class="modal-content">
       <h2>Edit Overall Profit</h2>
       <label>Overall Profit Amount (₱)</label>
-      <input type="number" id="profitInput" value="912" placeholder="Enter amount">
+      <input type="number" id="profitInput" value="912">
 
       <div class="modal-buttons">
         <button class="cancel-btn" onclick="hideEditProfitModal()">Cancel</button>
@@ -315,24 +302,70 @@
 
   <script>
     let records = [];
-    let overallProfit = 912;   // Default value
+    let overallProfit = 912;
+
+    // Get Philippine Timezone
+    function getPHDate(format = 'long') {
+      const options = { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' };
+      return new Date().toLocaleDateString('en-US', options);
+    }
+
+    // Get next Monday in MM/DD/YY format (Philippine Time)
+    function getNextMonday() {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      
+      let daysUntilMonday = (1 - dayOfWeek + 7) % 7;
+      if (daysUntilMonday === 0) daysUntilMonday = 7; // If today is Monday, go to next Monday
+
+      const nextMonday = new Date(now);
+      nextMonday.setDate(now.getDate() + daysUntilMonday);
+
+      const month = String(nextMonday.getMonth() + 1).padStart(2, '0');
+      const day = String(nextMonday.getDate()).padStart(2, '0');
+      const year = String(nextMonday.getFullYear()).slice(2); // 26 for 2026
+
+      return `${month}/${day}/${year}`;
+    }
 
     function loadData() {
-      // Load records
-      const savedRecords = localStorage.getItem('asaSavingsRecords');
-      if (savedRecords) {
-        records = JSON.parse(savedRecords);
+      const saved = localStorage.getItem('asaSavingsRecords');
+      if (saved) {
+        records = JSON.parse(saved);
       } else {
-        records = [ /* your initial 3 records */ ];
+        records = [
+          {
+            id: 1, name: "Savings Record 1", startDate: "04/01/26",
+            weeks: [
+              { week: 1, target: 250, received: 250, status: "success" },
+              { week: 2, target: 250, received: 200, status: "warning" },
+              { week: 3, target: 250, received: 250, status: "success" },
+              { week: 4, target: 250, received: 250, status: "success" }
+            ]
+          },
+          {
+            id: 2, name: "Savings Record 2", startDate: "04/01/26",
+            weeks: [
+              { week: 1, target: 250, received: 250, status: "success" },
+              { week: 2, target: 250, received: 250, status: "success" },
+              { week: 3, target: 250, received: 250, status: "success" },
+              { week: 4, target: 250, received: 0, status: "pending" }
+            ]
+          },
+          {
+            id: 3, name: "Savings Record 3", startDate: "05/01/26",
+            weeks: Array.from({length:4}, (_,i) => ({
+              week: i+1, target: 250, received: 0, status: "pending"
+            }))
+          }
+        ];
         saveRecords();
       }
 
-      // Load custom Overall Profit
       const savedProfit = localStorage.getItem('asaOverallProfit');
-      if (savedProfit !== null) {
-        overallProfit = parseFloat(savedProfit);
-      }
+      if (savedProfit) overallProfit = parseFloat(savedProfit);
 
+      document.getElementById('asOfDate').textContent = `As of ${getPHDate()}`;
       renderAllRecords();
     }
 
@@ -367,52 +400,24 @@
 
     function renderRecord(record) {
       const actual = calculateActual(record.weeks);
-      let html = `
-        <div class="record-card">
-          <div class="record-name">${record.name}</div>
-          <table>
-            <tr>
-              <th>Week</th>
-              <th>Date</th>
-              <th>Target</th>
-              <th>Received</th>
-              <th>Status</th>
-            </tr>`;
+      let html = `<div class="record-card"><div class="record-name">${record.name}</div><table><tr><th>Week</th><th>Date</th><th>Target</th><th>Received</th><th>Status</th></tr>`;
 
       record.weeks.forEach(week => {
         const date = formatDate(record.startDate, week.week);
-        html += `
-          <tr>
-            <td><strong>Week ${week.week}</strong></td>
-            <td>${date}</td>
-            <td>₱${week.target}</td>
-            <td>₱${week.received}</td>
-            <td>${getStatusHTML(week.status)}</td>
-          </tr>`;
+        html += `<tr><td><strong>Week ${week.week}</strong></td><td>${date}</td><td>₱${week.target}</td><td>₱${week.received}</td><td>${getStatusHTML(week.status)}</td></tr>`;
       });
 
-      html += `</table>
-        <div class="summary">
-          <div>
-            <div class="summary-label">EXPECTED</div>
-            <div class="summary-value">₱1,000</div>
-          </div>
-          <div>
-            <div class="summary-label">ACTUAL SAVED</div>
-            <div class="summary-value" style="color: ${actual >= 1000 ? '#00E5B8' : 'white'}">₱${actual}</div>
-          </div>
-        </div>
-      </div>`;
+      html += `</table><div class="summary">
+        <div><div class="summary-label">EXPECTED</div><div class="summary-value">₱1,000</div></div>
+        <div><div class="summary-label">ACTUAL SAVED</div><div class="summary-value" style="color: ${actual >= 1000 ? '#00E5B8' : 'white'}">₱${actual}</div></div>
+      </div></div>`;
       return html;
     }
 
     function renderAllRecords() {
-      const container = document.getElementById('recordsContainer');
       let html = '';
-      records.forEach(record => {
-        html += renderRecord(record);
-      });
-      container.innerHTML = html;
+      records.forEach(r => html += renderRecord(r));
+      document.getElementById('recordsContainer').innerHTML = html;
 
       const totalSaved = records.reduce((sum, r) => sum + calculateActual(r.weeks), 0);
       document.getElementById('totalSaved').textContent = `₱${totalSaved}`;
@@ -420,9 +425,9 @@
     }
 
     function showAddModal() {
+      document.getElementById('startDate').value = getNextMonday();
+      document.getElementById('recordName').value = `Savings Record ${records.length + 1}`;
       document.getElementById('addModal').style.display = 'flex';
-      const nextNum = records.length + 1;
-      document.getElementById('recordName').value = `Savings Record ${nextNum}`;
     }
 
     function hideAddModal() {
@@ -431,7 +436,7 @@
 
     function addNewRecord() {
       const name = document.getElementById('recordName').value.trim() || `Savings Record ${records.length + 1}`;
-      let startDate = document.getElementById('startDate').value.trim() || "05/01/26";
+      const startDate = document.getElementById('startDate').value;
 
       const newRecord = {
         id: Date.now(),
@@ -441,8 +446,7 @@
           week: i + 1,
           target: 250,
           received: 0,
-          status: "pending",
-          note: "Pending"
+          status: "pending"
         }))
       };
 
@@ -452,7 +456,6 @@
       hideAddModal();
     }
 
-    // Edit Profit Functions
     function showEditProfitModal() {
       document.getElementById('profitInput').value = overallProfit;
       document.getElementById('editProfitModal').style.display = 'flex';
@@ -463,16 +466,15 @@
     }
 
     function saveProfitAmount() {
-      const inputValue = parseFloat(document.getElementById('profitInput').value);
-      if (!isNaN(inputValue) && inputValue >= 0) {
-        overallProfit = inputValue;
+      const val = parseFloat(document.getElementById('profitInput').value);
+      if (!isNaN(val) && val >= 0) {
+        overallProfit = val;
         saveProfit();
         renderAllRecords();
       }
       hideEditProfitModal();
     }
 
-    // Initialize
     window.onload = loadData;
   </script>
 </body>
