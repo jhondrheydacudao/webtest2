@@ -12,6 +12,7 @@
       --card: #1A1A2E;
       --text: #E0E0FF;
       --text-light: #A0A0CC;
+      --profit: #00E5B8;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,7 +45,7 @@
       background: linear-gradient(135deg, #1F1F3A, #2A2A4A);
       border-radius: 28px;
       padding: 28px 24px;
-      margin-bottom: 32px;
+      margin-bottom: 20px;
       box-shadow: 0 15px 35px rgba(107, 78, 255, 0.25);
       border: 1px solid rgba(107, 78, 255, 0.3);
     }
@@ -57,7 +58,7 @@
     }
 
     .total-amount {
-      font-size: 3.4rem;
+      font-size: 3.2rem;
       font-weight: 700;
       color: white;
     }
@@ -65,6 +66,47 @@
     .as-of {
       font-size: 0.95rem;
       color: var(--text-light);
+    }
+
+    /* Overall Profit Card */
+    .profit-card {
+      background: linear-gradient(135deg, #1F2A1F, #2A3A2A);
+      border-radius: 28px;
+      padding: 24px;
+      margin-bottom: 32px;
+      border: 1px solid rgba(0, 229, 184, 0.3);
+      box-shadow: 0 10px 30px rgba(0, 229, 184, 0.15);
+      position: relative;
+    }
+
+    .profit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .profit-title {
+      font-size: 1.1rem;
+      color: var(--profit);
+      font-weight: 600;
+    }
+
+    .profit-amount {
+      font-size: 2.8rem;
+      font-weight: 700;
+      color: var(--profit);
+    }
+
+    .edit-profit-btn {
+      background: rgba(0, 229, 184, 0.2);
+      color: var(--profit);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
     }
 
     .add-btn {
@@ -80,11 +122,6 @@
       gap: 10px;
       margin: 0 auto 30px;
       box-shadow: 0 8px 25px rgba(107, 78, 255, 0.35);
-      transition: all 0.3s;
-    }
-
-    .add-btn:hover {
-      transform: translateY(-3px);
     }
 
     .record-card {
@@ -211,7 +248,7 @@
       <p style="color:#A0A0CC; margin-top:4px;">Savings Tracker</p>
     </header>
 
-    <!-- Savings Cart -->
+    <!-- Total Savings Cart -->
     <div class="savings-cart">
       <div class="cart-header">
         <div>
@@ -223,6 +260,21 @@
       <div class="as-of" id="asOfDate">As of April 27, 2026</div>
     </div>
 
+    <!-- Overall Profit Card -->
+    <div class="profit-card">
+      <div class="profit-header">
+        <div>
+          <div class="profit-title">OVERALL PROFIT</div>
+          <div class="profit-amount" id="overallProfit">₱912</div>
+        </div>
+        <div style="font-size:2rem; color:var(--profit);">📈</div>
+      </div>
+      <button class="edit-profit-btn" onclick="showEditProfitModal()">✏️ Edit Profit Amount</button>
+      <div style="margin-top:8px; font-size:0.9rem; color:var(--text-light);">
+        Your total correctly saved amount
+      </div>
+    </div>
+
     <button class="add-btn" onclick="showAddModal()">
       <span style="font-size:1.5rem;">+</span> Add New Record
     </button>
@@ -230,7 +282,7 @@
     <div id="recordsContainer"></div>
   </div>
 
-  <!-- Add Modal -->
+  <!-- Add New Record Modal -->
   <div class="modal" id="addModal">
     <div class="modal-content">
       <h2>Add New Savings Record</h2>
@@ -247,57 +299,49 @@
     </div>
   </div>
 
+  <!-- Edit Overall Profit Modal -->
+  <div class="modal" id="editProfitModal">
+    <div class="modal-content">
+      <h2>Edit Overall Profit</h2>
+      <label>Overall Profit Amount (₱)</label>
+      <input type="number" id="profitInput" value="912" placeholder="Enter amount">
+
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="hideEditProfitModal()">Cancel</button>
+        <button class="create-btn" onclick="saveProfitAmount()">Save Amount</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let records = [];
+    let overallProfit = 912;   // Default value
 
     function loadData() {
-      const saved = localStorage.getItem('asaSavingsRecords');
-      if (saved) {
-        records = JSON.parse(saved);
+      // Load records
+      const savedRecords = localStorage.getItem('asaSavingsRecords');
+      if (savedRecords) {
+        records = JSON.parse(savedRecords);
       } else {
-        // Initial Data
-        records = [
-          {
-            id: 1,
-            name: "Savings Record 1",
-            startDate: "04/01/26",
-            weeks: [
-              { week: 1, target: 250, received: 250, status: "success", note: "Received ₱250" },
-              { week: 2, target: 250, received: 200, status: "warning", note: "Received ₱200 - Missing ₱50" },
-              { week: 3, target: 250, received: 250, status: "success", note: "Received ₱250" },
-              { week: 4, target: 250, received: 250, status: "success", note: "Received ₱250" }
-            ]
-          },
-          {
-            id: 2,
-            name: "Savings Record 2",
-            startDate: "04/01/26",
-            weeks: [
-              { week: 1, target: 250, received: 250, status: "success", note: "Received ₱250" },
-              { week: 2, target: 250, received: 250, status: "success", note: "Received ₱250" },
-              { week: 3, target: 250, received: 250, status: "success", note: "Received ₱250" },
-              { week: 4, target: 250, received: 0, status: "pending", note: "Pending as of 05/04/26" }
-            ]
-          },
-          {
-            id: 3,
-            name: "Savings Record 3",
-            startDate: "05/01/26",
-            weeks: [
-              { week: 1, target: 250, received: 0, status: "pending", note: "Pending as of 05/11/26" },
-              { week: 2, target: 250, received: 0, status: "pending", note: "Pending as of 05/18/26" },
-              { week: 3, target: 250, received: 0, status: "pending", note: "Pending as of 05/25/26" },
-              { week: 4, target: 250, received: 0, status: "pending", note: "Pending as of 06/01/26" }
-            ]
-          }
-        ];
-        saveData();
+        records = [ /* your initial 3 records */ ];
+        saveRecords();
       }
+
+      // Load custom Overall Profit
+      const savedProfit = localStorage.getItem('asaOverallProfit');
+      if (savedProfit !== null) {
+        overallProfit = parseFloat(savedProfit);
+      }
+
       renderAllRecords();
     }
 
-    function saveData() {
+    function saveRecords() {
       localStorage.setItem('asaSavingsRecords', JSON.stringify(records));
+    }
+
+    function saveProfit() {
+      localStorage.setItem('asaOverallProfit', overallProfit);
     }
 
     function calculateActual(weeks) {
@@ -370,8 +414,9 @@
       });
       container.innerHTML = html;
 
-      const total = records.reduce((sum, r) => sum + calculateActual(r.weeks), 0);
-      document.getElementById('totalSaved').textContent = `₱${total}`;
+      const totalSaved = records.reduce((sum, r) => sum + calculateActual(r.weeks), 0);
+      document.getElementById('totalSaved').textContent = `₱${totalSaved}`;
+      document.getElementById('overallProfit').textContent = `₱${overallProfit}`;
     }
 
     function showAddModal() {
@@ -402,12 +447,32 @@
       };
 
       records.push(newRecord);
-      saveData();
+      saveRecords();
       renderAllRecords();
       hideAddModal();
     }
 
-    // Initialize the app
+    // Edit Profit Functions
+    function showEditProfitModal() {
+      document.getElementById('profitInput').value = overallProfit;
+      document.getElementById('editProfitModal').style.display = 'flex';
+    }
+
+    function hideEditProfitModal() {
+      document.getElementById('editProfitModal').style.display = 'none';
+    }
+
+    function saveProfitAmount() {
+      const inputValue = parseFloat(document.getElementById('profitInput').value);
+      if (!isNaN(inputValue) && inputValue >= 0) {
+        overallProfit = inputValue;
+        saveProfit();
+        renderAllRecords();
+      }
+      hideEditProfitModal();
+    }
+
+    // Initialize
     window.onload = loadData;
   </script>
 </body>
