@@ -128,7 +128,6 @@
       border: 1px solid #555;
       border-radius: 6px;
       color: white;
-      font-size: 0.9rem;
     }
 
     input[type="number"], input[type="text"] {
@@ -225,11 +224,20 @@
   <div class="modal" id="addModal">
     <div class="modal-content">
       <h2>Add New Savings Record</h2>
+      
       <label>Record Name</label>
-      <input type="text" id="recordName">
+      <input type="text" id="recordName" value="Savings Record 4">
 
-      <label>Week 1 Date (MM/DD/YY)</label>
-      <input type="text" id="startDate" readonly>
+      <label>Week 1 Date (MM/DD/YY) - You can change this</label>
+      <input type="text" id="startDate" placeholder="05/04/26">
+
+      <label>Number of Weeks</label>
+      <select id="numWeeks" style="width:100%; padding:14px; background:#25253F; border:1px solid #555; border-radius:12px; color:white;">
+        <option value="4">4 Weeks</option>
+        <option value="3">3 Weeks</option>
+        <option value="2">2 Weeks</option>
+        <option value="1">1 Week</option>
+      </select>
 
       <div class="modal-buttons">
         <button class="cancel-btn" onclick="hideAddModal()">Cancel</button>
@@ -238,7 +246,7 @@
     </div>
   </div>
 
-  <!-- Edit Record Modal (Name & Week 1 Date) -->
+  <!-- Edit Record Modal -->
   <div class="modal" id="editModal">
     <div class="modal-content">
       <h2>Edit Record Info</h2>
@@ -291,17 +299,17 @@
       const saved = localStorage.getItem('asaSavingsRecords');
       if (saved) records = JSON.parse(saved);
       else {
-        records = [
-          {
-            id: 1, name: "Savings Record 1", startDate: "04/01/26",
-            weeks: [
-              { week: 1, target: 250, received: 250, status: "success", missing: 0, date: "" },
-              { week: 2, target: 250, received: 200, status: "warning", missing: 50, date: "" },
-              { week: 3, target: 250, received: 250, status: "success", missing: 0, date: "" },
-              { week: 4, target: 250, received: 250, status: "success", missing: 0, date: "" }
-            ]
-          }
-        ];
+        records = [{
+          id: 1,
+          name: "Savings Record 1",
+          startDate: "04/01/26",
+          weeks: [
+            { week: 1, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 2, target: 250, received: 200, status: "warning", missing: 50, date: "" },
+            { week: 3, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 4, target: 250, received: 250, status: "success", missing: 0, date: "" }
+          ]
+        }];
         saveRecords();
       }
 
@@ -324,10 +332,10 @@
       return weeks.reduce((sum, w) => sum + (w.received || 0), 0);
     }
 
-    function formatDate(dateStr, weekNum, customDate = "") {
+    function formatDate(baseDate, weekNum, customDate = "") {
       if (customDate) return customDate;
       try {
-        const [m,d,y] = dateStr.split('/').map(Number);
+        const [m,d,y] = baseDate.split('/').map(Number);
         const date = new Date(2000 + y, m-1, d);
         date.setDate(date.getDate() + (weekNum-1)*7);
         return date.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
@@ -342,7 +350,7 @@
 
       if (week.status === "warning") {
         html += `<input type="number" class="missing-input" value="${week.missing || 50}" 
-                 onchange="updateMissing(${recordId}, ${week.week}, this.value)" placeholder="Missing">`;
+                 onchange="updateMissing(${recordId}, ${week.week}, this.value)">`;
       }
       html += `</div>`;
       return html;
@@ -350,6 +358,8 @@
 
     function renderRecord(record) {
       const actual = calculateActual(record.weeks);
+      const expected = record.weeks.length * 250;
+
       let html = `
         <div class="record-card">
           <div class="record-header">
@@ -373,25 +383,17 @@
         html += `
           <tr>
             <td><strong>Week ${week.week}</strong></td>
-            <td>
-              <input type="text" value="${currentDate}" 
-                     onchange="updateWeekDate(${record.id}, ${week.week}, this.value)" 
-                     style="width:85px;">
-            </td>
+            <td><input type="text" value="${currentDate}" onchange="updateWeekDate(${record.id}, ${week.week}, this.value)" style="width:88px;"></td>
             <td>₱${week.target}</td>
-            <td>
-              <input type="number" value="${week.received}" 
-                     onchange="updateReceived(${record.id}, ${week.week}, this.value)" 
-                     style="width:85px;">
-            </td>
+            <td><input type="number" value="${week.received}" onchange="updateReceived(${record.id}, ${week.week}, this.value)" style="width:85px;"></td>
             <td>${getStatusHTML(record.id, week)}</td>
           </tr>`;
       });
 
       html += `</table>
         <div class="summary">
-          <div><div class="summary-label">EXPECTED</div><div class="summary-value">₱1,000</div></div>
-          <div><div class="summary-label">ACTUAL SAVED</div><div class="summary-value" style="color:${actual >= 1000 ? '#00E5B8' : 'white'}">₱${actual}</div></div>
+          <div><div class="summary-label">EXPECTED</div><div class="summary-value">₱${expected}</div></div>
+          <div><div class="summary-label">ACTUAL SAVED</div><div class="summary-value" style="color:${actual >= expected ? '#00E5B8' : 'white'}">₱${actual}</div></div>
         </div>
       </div>`;
       return html;
@@ -407,25 +409,21 @@
       document.getElementById('overallProfit').textContent = `₱${overallProfit}`;
     }
 
-    // === All Update Functions ===
+    // Update functions
     function updateReceived(recordId, weekNum, value) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
-      if (week) {
-        week.received = parseFloat(value) || 0;
-        saveRecords();
-        renderAllRecords();
-      }
+      if (week) week.received = parseFloat(value) || 0;
+      saveRecords();
+      renderAllRecords();
     }
 
     function updateWeekDate(recordId, weekNum, newDate) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
-      if (week) {
-        week.date = newDate.trim();
-        saveRecords();
-        renderAllRecords();
-      }
+      if (week) week.date = newDate.trim();
+      saveRecords();
+      renderAllRecords();
     }
 
     function updateMissing(recordId, weekNum, value) {
@@ -445,7 +443,6 @@
       if (!week) return;
 
       week.status = newStatus;
-
       if (newStatus === "success") {
         week.received = week.target;
         week.missing = 0;
@@ -461,30 +458,35 @@
       renderAllRecords();
     }
 
-    // Record Management
     function showAddModal() {
       document.getElementById('startDate').value = getNextMonday();
       document.getElementById('recordName').value = `Savings Record ${records.length + 1}`;
       document.getElementById('addModal').style.display = 'flex';
     }
 
-    function hideAddModal() { document.getElementById('addModal').style.display = 'none'; }
+    function hideAddModal() {
+      document.getElementById('addModal').style.display = 'none';
+    }
 
     function addNewRecord() {
       const name = document.getElementById('recordName').value.trim() || `Savings Record ${records.length + 1}`;
-      const startDate = document.getElementById('startDate').value;
+      let startDate = document.getElementById('startDate').value.trim();
+      const numWeeks = parseInt(document.getElementById('numWeeks').value);
+
+      // Default to next Monday if empty
+      if (!startDate) startDate = getNextMonday();
 
       const newRecord = {
         id: Date.now(),
-        name,
-        startDate,
-        weeks: Array.from({length: 4}, (_, i) => ({
-          week: i+1,
+        name: name,
+        startDate: startDate,
+        weeks: Array.from({length: numWeeks}, (_, i) => ({
+          week: i + 1,
           target: 250,
           received: 0,
           status: "pending",
           missing: 0,
-          date: ""
+          date: ""   // Will be calculated from startDate
         }))
       };
 
@@ -518,7 +520,7 @@
     }
 
     function deleteRecord(id) {
-      if (confirm("Delete this entire savings record?")) {
+      if (confirm("Delete this savings record?")) {
         records = records.filter(r => r.id !== id);
         saveRecords();
         renderAllRecords();
