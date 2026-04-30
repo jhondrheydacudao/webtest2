@@ -37,10 +37,34 @@
       -webkit-text-fill-color: transparent;
     }
 
-    /* Notification Toast */
-    #notification {
+    /* Music Player */
+    #musicPlayer {
       position: fixed;
       top: 20px;
+      right: 20px;
+      background: #1A1A2E;
+      padding: 10px 18px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 3000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      border: 1px solid var(--accent);
+    }
+
+    #musicPlayer button {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    /* Notification */
+    #notification {
+      position: fixed;
+      top: 80px;
       left: 20px;
       background: #1A1A2E;
       color: var(--accent);
@@ -51,9 +75,8 @@
       display: none;
       align-items: center;
       gap: 10px;
-      z-index: 3000;
+      z-index: 2900;
       font-weight: 500;
-      min-width: 280px;
     }
 
     /* Logs Panel */
@@ -89,11 +112,7 @@
       border-left: 4px solid var(--primary);
     }
 
-    .log-time {
-      font-size: 0.75rem;
-      color: var(--text-light);
-      margin-bottom: 4px;
-    }
+    .log-time { font-size: 0.75rem; color: var(--text-light); margin-bottom: 4px; }
 
     .savings-cart, .profit-card {
       border-radius: 28px;
@@ -234,6 +253,13 @@
   </style>
 </head>
 <body>
+
+  <!-- Music Player -->
+  <div id="musicPlayer">
+    <button id="playBtn">⏸️</button>
+    <span style="font-size:0.95rem; color:var(--accent);">Super Shy - NewJeans</span>
+  </div>
+
   <!-- Notification -->
   <div id="notification">
     <span id="notificationText"></span>
@@ -292,6 +318,12 @@
 
     <div id="recordsContainer"></div>
   </div>
+
+  <!-- Background Music -->
+  <audio id="bgMusic" loop autoplay>
+    <source src="Super Shy.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
 
   <!-- Add New Record Modal -->
   <div class="modal" id="addModal">
@@ -353,25 +385,53 @@
     let records = [];
     let overallProfit = 912;
     let logs = [];
+    let isMusicPlaying = true;
 
-    function getPHDate() {
-      const options = { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' };
-      return new Date().toLocaleDateString('en-US', options);
-    }
+    const music = document.getElementById('bgMusic');
+    const playBtn = document.getElementById('playBtn');
 
-    function getCurrentPHTime() {
-      return new Date().toLocaleString('en-US', { 
-        timeZone: 'Asia/Manila',
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit'
+    // Auto-play with user gesture fallback
+    function tryPlayMusic() {
+      music.play().then(() => {
+        isMusicPlaying = true;
+        playBtn.textContent = '⏸️';
+      }).catch(() => {
+        // Browser blocked autoplay - wait for user interaction
+        document.body.addEventListener('click', () => {
+          music.play();
+          isMusicPlaying = true;
+          playBtn.textContent = '⏸️';
+        }, { once: true });
       });
     }
 
+    // Music Control
+    playBtn.addEventListener('click', () => {
+      if (isMusicPlaying) {
+        music.pause();
+        playBtn.textContent = '▶️';
+      } else {
+        music.play();
+        playBtn.textContent = '⏸️';
+      }
+      isMusicPlaying = !isMusicPlaying;
+    });
+
+    // Notification
+    function showNotification(message) {
+      const notif = document.getElementById('notification');
+      document.getElementById('notificationText').innerHTML = message;
+      notif.style.display = 'flex';
+      setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => { notif.style.display = 'none'; notif.style.opacity = '1'; }, 300);
+      }, 2500);
+    }
+
+    // Logs
     function addLog(action) {
       logs.unshift({
-        time: getCurrentPHTime(),
+        time: new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         action: action
       });
       if (logs.length > 100) logs.pop();
@@ -389,7 +449,7 @@
             <div>${log.action}</div>
           </div>`;
       });
-      container.innerHTML = html || '<p style="color:#666; text-align:center; padding:20px;">No activity logs yet</p>';
+      container.innerHTML = html || '<p style="color:#666; text-align:center; padding:20px;">No logs yet</p>';
     }
 
     function toggleLogs() {
@@ -397,26 +457,31 @@
     }
 
     function clearLogs() {
-      if (confirm("Clear all activity logs?")) {
+      if (confirm("Clear all logs?")) {
         logs = [];
         localStorage.setItem('asaLogs', JSON.stringify(logs));
         renderLogs();
       }
     }
 
-    function showNotification(message) {
-      const notif = document.getElementById('notification');
-      document.getElementById('notificationText').innerHTML = message;
-      notif.style.display = 'flex';
-      setTimeout(() => {
-        notif.style.opacity = '0';
-        setTimeout(() => { notif.style.display = 'none'; notif.style.opacity = '1'; }, 300);
-      }, 2500);
-    }
-
+    // Rest of your app logic (same as previous version)
     function loadData() {
-      const savedRecords = localStorage.getItem('asaSavingsRecords');
-      if (savedRecords) records = JSON.parse(savedRecords);
+      const saved = localStorage.getItem('asaSavingsRecords');
+      if (saved) records = JSON.parse(saved);
+      else {
+        records = [{
+          id: 1,
+          name: "Savings Record 1",
+          startDate: "04/01/26",
+          weeks: [
+            { week: 1, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 2, target: 250, received: 200, status: "warning", missing: 50, date: "" },
+            { week: 3, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 4, target: 250, received: 250, status: "success", missing: 0, date: "" }
+          ]
+        }];
+        saveRecords();
+      }
 
       const savedProfit = localStorage.getItem('asaOverallProfit');
       if (savedProfit) overallProfit = parseFloat(savedProfit);
@@ -427,6 +492,14 @@
       document.getElementById('asOfDate').textContent = `As of ${getPHDate()}`;
       renderAllRecords();
       renderLogs();
+
+      // Start music
+      tryPlayMusic();
+    }
+
+    function getPHDate() {
+      const options = { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' };
+      return new Date().toLocaleDateString('en-US', options);
     }
 
     function saveRecords() {
@@ -518,7 +591,7 @@
       document.getElementById('overallProfit').textContent = `₱${overallProfit}`;
     }
 
-    // Update Functions
+    // Update functions with logs
     function updateReceived(recordId, weekNum, value) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
@@ -526,7 +599,7 @@
         week.received = parseFloat(value) || 0;
         saveRecords();
         renderAllRecords();
-        showNotification(`Week ${weekNum} received updated`);
+        showNotification(`Week ${weekNum} updated`);
         addLog(`Updated received amount for Week ${weekNum} in <strong>${record.name}</strong>`);
       }
     }
@@ -539,7 +612,7 @@
         saveRecords();
         renderAllRecords();
         showNotification(`Week ${weekNum} date updated`);
-        addLog(`Changed date for Week ${weekNum} in <strong>${record.name}</strong>`);
+        addLog(`Updated date for Week ${weekNum} in <strong>${record.name}</strong>`);
       }
     }
 
@@ -567,7 +640,7 @@
         week.received = 0;
         week.missing = 0;
       } else if (newStatus === "warning") {
-        if (!week.missing || week.missing <= 0) week.missing = 50;
+        if (!week.missing) week.missing = 50;
         week.received = week.target - week.missing;
       }
 
@@ -681,6 +754,7 @@
       return next.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
     }
 
+    // Initialize
     window.onload = loadData;
   </script>
 </body>
