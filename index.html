@@ -58,12 +58,13 @@
     }
     #logsPanel.open { right: 0; }
 
-    .savings-cart, .profit-card {
+    .savings-cart, .profit-card, .expenses-card {
       border-radius: 28px; padding: 28px 24px; margin-bottom: 20px;
       box-shadow: 0 15px 35px rgba(0,0,0,0.3);
     }
     .savings-cart { background: linear-gradient(135deg, #1F1F3A, #2A2A4A); border: 1px solid rgba(107,78,255,0.3); }
     .profit-card { background: linear-gradient(135deg, #1F2A1F, #2A3A2A); border: 1px solid rgba(0,229,184,0.3); }
+    .expenses-card { background: linear-gradient(135deg, #2A1F1F, #3A2A2A); border: 1px solid rgba(255,77,77,0.3); }
 
     .total-amount, .profit-amount { font-size: 3.2rem; font-weight: 700; }
     .as-of { font-size: 0.95rem; color: var(--text-light); }
@@ -150,6 +151,36 @@
     }
     .spend-btn { background: rgba(255,77,77,0.25); color: var(--danger); }
 
+    /* Expenses List */
+    .expense-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .expense-item:last-child { border-bottom: none; }
+    .expense-amount { font-size: 1.15rem; font-weight: 700; color: var(--danger); }
+    .expense-note { font-size: 0.95rem; color: var(--text); }
+    .expense-time { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
+    .expense-delete {
+      background: rgba(255,77,77,0.15);
+      border: none;
+      color: var(--danger);
+      border-radius: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .expenses-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,77,77,0.3);
+    }
+
     .modal {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
       align-items: center; justify-content: center; z-index: 1000;
@@ -223,6 +254,24 @@
       <div class="profit-actions">
         <button onclick="showEditProfitModal()" style="background:rgba(0,229,184,0.2); color:var(--profit);">✏️ Edit Profit</button>
         <button onclick="showAddExpenseModal()" class="spend-btn">➖ Add Spent</button>
+      </div>
+    </div>
+
+    <!-- Recent Expenses -->
+    <div class="expenses-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:1.1rem; color:var(--danger); font-weight:600;">RECENT EXPENSES</div>
+          <div style="font-size:0.85rem; color:var(--text-light); margin-top:2px;">Your spending history</div>
+        </div>
+        <div style="font-size:2rem;">🧾</div>
+      </div>
+      <div id="expensesList">
+        <p style="color:var(--text-light);text-align:center;padding:20px 0;">No expenses recorded yet</p>
+      </div>
+      <div class="expenses-total" id="expensesTotal" style="display:none;">
+        <span style="color:var(--text-light); font-size:0.95rem;">Total Spent</span>
+        <span style="font-size:1.4rem; font-weight:700; color:var(--danger);" id="totalSpent">₱0</span>
       </div>
     </div>
 
@@ -309,6 +358,7 @@
     let records = [];
     let overallProfit = 912;
     let logs = [];
+    let expenses = [];
     let isMusicPlaying = true;
     const music = document.getElementById('bgMusic');
     const playBtn = document.getElementById('playBtn');
@@ -359,6 +409,52 @@
       }
     }
 
+    function renderExpenses() {
+      const list = document.getElementById('expensesList');
+      const totalEl = document.getElementById('expensesTotal');
+      const totalSpentEl = document.getElementById('totalSpent');
+
+      if (!expenses.length) {
+        list.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:20px 0;">No expenses recorded yet</p>';
+        totalEl.style.display = 'none';
+        return;
+      }
+
+      let html = '';
+      expenses.forEach((exp, index) => {
+        html += `
+          <div class="expense-item">
+            <div>
+              <div class="expense-note">${exp.note || 'No note'}</div>
+              <div class="expense-time">${exp.time}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="expense-amount">−₱${exp.amount}</div>
+              <button class="expense-delete" onclick="deleteExpense(${index})">✕</button>
+            </div>
+          </div>`;
+      });
+      list.innerHTML = html;
+
+      const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+      totalSpentEl.textContent = `₱${total}`;
+      totalEl.style.display = 'flex';
+    }
+
+    function deleteExpense(index) {
+      const exp = expenses[index];
+      if (confirm(`Delete this expense of ₱${exp.amount}?`)) {
+        overallProfit += exp.amount;
+        expenses.splice(index, 1);
+        localStorage.setItem('asaExpenses', JSON.stringify(expenses));
+        saveProfit();
+        renderExpenses();
+        renderAllRecords();
+        showNotification(`Expense of ₱${exp.amount} removed`);
+        addLog(`Deleted expense of ₱${exp.amount} (${exp.note || 'No note'})`);
+      }
+    }
+
     function loadData() {
       const saved = localStorage.getItem('asaSavingsRecords');
       if (saved) records = JSON.parse(saved);
@@ -382,9 +478,13 @@
       const savedLogs = localStorage.getItem('asaLogs');
       if (savedLogs) logs = JSON.parse(savedLogs);
 
+      const savedExpenses = localStorage.getItem('asaExpenses');
+      if (savedExpenses) expenses = JSON.parse(savedExpenses);
+
       document.getElementById('asOfDate').textContent = `As of ${getPHDate()}`;
       renderAllRecords();
       renderLogs();
+      renderExpenses();
       music.play().catch(() => {});
     }
 
@@ -467,7 +567,6 @@
       document.getElementById('overallProfit').textContent = `₱${Math.max(0, overallProfit)}`;
     }
 
-    // All update functions (same as before)
     function updateReceived(recordId, weekNum, value) {
       const record = records.find(r => r.id === recordId);
       const week = record.weeks.find(w => w.week === weekNum);
@@ -519,7 +618,6 @@
       addLog(`Changed status of Week ${weekNum} to <strong>${newStatus}</strong> in <strong>${record.name}</strong>`);
     }
 
-    // Add Record functions
     function showAddModal() {
       document.getElementById('recordName').value = `Savings Record ${records.length + 1}`;
       document.getElementById('startDate').value = getNextMonday();
@@ -608,9 +706,19 @@
       if (!amount || amount <= 0) return alert("Enter valid amount");
       const note = document.getElementById('expenseNote').value.trim();
 
+      const newExpense = {
+        amount: amount,
+        note: note || '',
+        time: new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+
+      expenses.unshift(newExpense);
+      localStorage.setItem('asaExpenses', JSON.stringify(expenses));
+
       overallProfit -= amount;
       saveProfit();
       renderAllRecords();
+      renderExpenses();
       hideAddExpenseModal();
       showNotification(`₱${amount} spent`);
       addLog(`Spent ₱${amount} ${note ? `(${note})` : ''}`);
