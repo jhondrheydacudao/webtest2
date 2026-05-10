@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASA • Savings Tracker</title>
+  <style>
+    :root {
+      --primary: #6B4EFF;
+      --accent: #00E5B8;
+      --bg: #0F0F1A;
+      --card: #1A1A2E;
+      --text: #E0E0FF;
+      --text-light: #A0A0CC;
+      --profit: #00E5B8;
+      --danger: #FF4D4D;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 980px; margin: 0 auto; }
+    header { text-align: center; padding: 20px 0 10px; }
+    .logo {
+      font-size: 2.8rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Music Player */
+    #musicPlayer {
+      position: fixed; top: 20px; right: 20px; background: #1A1A2E;
+      padding: 10px 18px; border-radius: 9999px; display: flex; align-items: center;
+      gap: 12px; z-index: 3000; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      border: 1px solid var(--accent);
+    }
+    #musicPlayer button { background: none; border: none; color: var(--accent); font-size: 1.6rem; cursor: pointer; }
+
+    /* Notification */
+    #notification {
+      position: fixed; top: 80px; left: 20px; background: #1A1A2E; color: var(--accent);
+      padding: 14px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(107,78,255,0.4);
+      border: 1px solid var(--accent); display: none; align-items: center; gap: 10px;
+      z-index: 2900; font-weight: 500;
+    }
+
+    /* Logs Panel */
+    #logsPanel {
+      position: fixed; top: 0; right: -420px; width: 420px; height: 100vh;
+      background: #161625; border-left: 3px solid var(--primary); padding: 20px;
+      overflow-y: auto; transition: right 0.4s ease; z-index: 2500;
+    }
+    #logsPanel.open { right: 0; }
+
+    .savings-cart, .profit-card, .expenses-card {
+      border-radius: 28px; padding: 28px 24px; margin-bottom: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    }
+    .savings-cart { background: linear-gradient(135deg, #1F1F3A, #2A2A4A); border: 1px solid rgba(107,78,255,0.3); }
+    .profit-card { background: linear-gradient(135deg, #1F2A1F, #2A3A2A); border: 1px solid rgba(0,229,184,0.3); }
+    .expenses-card { background: linear-gradient(135deg, #2A1F1F, #3A2A2A); border: 1px solid rgba(255,77,77,0.3); }
+
+    .total-amount, .profit-amount { font-size: 3.2rem; font-weight: 700; }
+    .as-of { font-size: 0.95rem; color: var(--text-light); }
+
+    .add-btn {
+      background: var(--primary); color: white; border: none;
+      padding: 16px 32px; border-radius: 9999px; font-size: 1.1rem;
+      font-weight: 600; margin: 20px auto 30px; display: block;
+    }
+
+    .record-card {
+      background: #1A1A2E;
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 28px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .record-name { font-size: 1.5rem; font-weight: 700; }
+
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td {
+      padding: 14px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    th { color: var(--text-light); font-size: 0.9rem; font-weight: 500; }
+    td { font-size: 1rem; }
+
+    .status-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .status-btn {
+      padding: 6px 12px;
+      border-radius: 9999px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .success { background: #00C48C; color: #000; }
+    .warning { background: #FFB800; color: #000; }
+    .pending { background: #6B4EFF; color: white; }
+
+    .missing-input {
+      width: 85px;
+      padding: 6px 8px;
+      background: #25253F;
+      border: 1px solid #555;
+      border-radius: 8px;
+      color: white;
+    }
+
+    input[type="number"], input[type="text"] {
+      background: #25253F;
+      border: 1px solid #555;
+      border-radius: 8px;
+      color: white;
+      padding: 6px 10px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      background: rgba(255,255,255,0.04);
+      padding: 20px;
+      border-radius: 16px;
+      margin-top: 16px;
+    }
+    .profit-actions {
+      display: flex; gap: 12px; margin-top: 15px;
+    }
+    .profit-actions button {
+      flex: 1; padding: 12px; border-radius: 9999px; font-weight: 600; cursor: pointer;
+    }
+    .spend-btn { background: rgba(255,77,77,0.25); color: var(--danger); }
+
+    /* Expenses List */
+    .expense-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .expense-item:last-child { border-bottom: none; }
+    .expense-amount { font-size: 1.15rem; font-weight: 700; color: var(--danger); }
+    .expense-note { font-size: 0.95rem; color: var(--text); }
+    .expense-time { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
+    .expense-delete {
+      background: rgba(255,77,77,0.15);
+      border: none;
+      color: var(--danger);
+      border-radius: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .expenses-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,77,77,0.3);
+    }
+
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-content {
+      background: var(--card); border-radius: 24px; width: 90%; max-width: 420px; padding: 32px;
+    }
+    label { display: block; margin: 16px 0 8px; color: var(--text-light); }
+    .modal-buttons { display: flex; gap: 12px; margin-top: 24px; }
+    .modal-buttons button {
+      flex: 1; padding: 14px; border: none; border-radius: 12px;
+      font-weight: 600; cursor: pointer;
+    }
+    .cancel-btn { background: #33334D; color: white; }
+    .create-btn { background: var(--primary); color: white; }
+  </style>
+</head>
+<body>
+
+  <!-- Music Player -->
+  <div id="musicPlayer">
+    <button id="playBtn">⏸️</button>
+    <span style="font-size:0.95rem; color:var(--accent);">Super Shy - NewJeans</span>
+  </div>
+
+  <!-- Notification -->
+  <div id="notification"><span id="notificationText"></span></div>
+
+  <!-- Logs Panel -->
+  <div id="logsPanel">
+    <div class="log-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;color:var(--accent);">
+      <h2>Activity Logs</h2>
+      <button onclick="clearLogs()" style="background:#d9534f;color:white;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;">Clear</button>
+    </div>
+    <div id="logsContainer"></div>
+  </div>
+
+  <div class="container">
+    <header>
+      <div class="logo">ASA</div>
+      <p style="color:#A0A0CC; margin-top:4px;">Savings Tracker</p>
+    </header>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-bottom:12px;">
+      <input type="file" id="importFileInput" accept=".txt,.json" style="display:none;" onchange="importDatabase(event)">
+      <button onclick="document.getElementById('importFileInput').click()" style="background:#1A3A2A; color:#00E5B8; border:1px solid rgba(0,229,184,0.4); padding:10px 18px; border-radius:9999px; cursor:pointer; font-weight:600;">
+        📂 Load from File
+      </button>
+      <button onclick="toggleLogs()" style="background:#33334D; color:white; border:none; padding:10px 18px; border-radius:9999px; cursor:pointer;">
+        📜 View Logs
+      </button>
+    </div>
+
+    <!-- Total Savings -->
+    <div class="savings-cart">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:1.1rem; color:var(--accent); font-weight:600;">TOTAL SAVINGS</div>
+          <div class="total-amount" id="totalSaved">₱912</div>
+        </div>
+        <div style="font-size:2.8rem;">💰</div>
+      </div>
+      <div class="as-of" id="asOfDate">As of April 29, 2026</div>
+    </div>
+
+    <!-- Overall Profit -->
+    <div class="profit-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:1.1rem; color:var(--accent); font-weight:600;">OVERALL PROFIT</div>
+          <div class="profit-amount" id="overallProfit">₱912</div>
+        </div>
+        <div style="font-size:2.5rem; color:var(--profit);">📈</div>
+      </div>
+      <div class="profit-actions">
+        <button onclick="showEditProfitModal()" style="background:rgba(0,229,184,0.2); color:var(--profit);">✏️ Edit Profit</button>
+        <button onclick="showAddExpenseModal()" class="spend-btn">➖ Add Spent</button>
+      </div>
+    </div>
+
+    <!-- Recent Expenses -->
+    <div class="expenses-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:1.1rem; color:var(--danger); font-weight:600;">RECENT EXPENSES</div>
+          <div style="font-size:0.85rem; color:var(--text-light); margin-top:2px;">Your spending history</div>
+        </div>
+        <div style="font-size:2rem;">🧾</div>
+      </div>
+      <div id="expensesList">
+        <p style="color:var(--text-light);text-align:center;padding:20px 0;">No expenses recorded yet</p>
+      </div>
+      <div class="expenses-total" id="expensesTotal" style="display:none;">
+        <span style="color:var(--text-light); font-size:0.95rem;">Total Spent</span>
+        <span style="font-size:1.4rem; font-weight:700; color:var(--danger);" id="totalSpent">₱0</span>
+      </div>
+    </div>
+
+    <button class="add-btn" onclick="showAddModal()">
+      <span style="font-size:1.5rem;">+</span> Add New Record
+    </button>
+
+    <div id="recordsContainer"></div>
+  </div>
+
+  <!-- Background Music -->
+  <audio id="bgMusic" loop>
+    <source src="Super Shy.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- Modals -->
+  <!-- Add Record Modal -->
+  <div class="modal" id="addModal">
+    <div class="modal-content">
+      <h2>Add New Savings Record</h2>
+      <label>Record Name</label>
+      <input type="text" id="recordName">
+      <label>Week 1 Date (MM/DD/YY)</label>
+      <input type="text" id="startDate">
+      <label>Number of Weeks</label>
+      <select id="numWeeks" style="width:100%;padding:12px;background:#25253F;border:1px solid #555;border-radius:12px;color:white;">
+        <option value="4">4 Weeks</option>
+        <option value="3">3 Weeks</option>
+        <option value="2">2 Weeks</option>
+        <option value="1">1 Week</option>
+      </select>
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="hideAddModal()">Cancel</button>
+        <button class="create-btn" onclick="addNewRecord()">Create Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Record Modal -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <h2>Edit Record</h2>
+      <input type="hidden" id="editId">
+      <label>Record Name</label>
+      <input type="text" id="editName">
+      <label>Week 1 Date</label>
+      <input type="text" id="editStartDate">
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="hideEditModal()">Cancel</button>
+        <button class="create-btn" onclick="saveEditRecord()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Profit Modal -->
+  <div class="modal" id="editProfitModal">
+    <div class="modal-content">
+      <h2>Edit Overall Profit</h2>
+      <label>Amount (₱)</label>
+      <input type="number" id="profitInput">
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="hideEditProfitModal()">Cancel</button>
+        <button class="create-btn" onclick="saveProfitAmount()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Spent Modal -->
+  <div class="modal" id="addExpenseModal">
+    <div class="modal-content">
+      <h2>Add Spent Amount</h2>
+      <label>Amount (₱)</label>
+      <input type="number" id="expenseAmount" style="font-size:1.6rem;padding:12px;">
+      <label>Note (optional)</label>
+      <input type="text" id="expenseNote" placeholder="e.g. Food, Transport">
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="hideAddExpenseModal()">Cancel</button>
+        <button class="create-btn" onclick="addExpense()">Record Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let records = [];
+    let overallProfit = 912;
+    let logs = [];
+    let expenses = [];
+    let isMusicPlaying = true;
+    const music = document.getElementById('bgMusic');
+    const playBtn = document.getElementById('playBtn');
+
+    // Music
+    playBtn.addEventListener('click', () => {
+      if (isMusicPlaying) { music.pause(); playBtn.textContent = '▶️'; }
+      else { music.play(); playBtn.textContent = '⏸️'; }
+      isMusicPlaying = !isMusicPlaying;
+    });
+
+    function showNotification(message) {
+      const notif = document.getElementById('notification');
+      document.getElementById('notificationText').innerHTML = message;
+      notif.style.display = 'flex';
+      setTimeout(() => notif.style.opacity = '0', 2200);
+      setTimeout(() => { notif.style.display = 'none'; notif.style.opacity = '1'; }, 2800);
+    }
+
+    function addLog(action) {
+      logs.unshift({
+        time: new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        action: action
+      });
+      if (logs.length > 100) logs.pop();
+      localStorage.setItem('asaLogs', JSON.stringify(logs));
+      autoSaveDatabase();
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+      let html = '';
+      logs.forEach(log => {
+        html += `<div class="log-entry" style="background:#1F1F2E;padding:12px;border-radius:10px;margin-bottom:10px;font-size:0.88rem;border-left:4px solid var(--primary);">
+          <div style="font-size:0.75rem;color:var(--text-light);margin-bottom:4px;">${log.time}</div>
+          <div>${log.action}</div>
+        </div>`;
+      });
+      container.innerHTML = html || '<p style="color:#666;text-align:center;padding:20px;">No logs yet</p>';
+    }
+
+    function toggleLogs() { document.getElementById('logsPanel').classList.toggle('open'); }
+    function clearLogs() {
+      if (confirm("Clear all logs?")) {
+        logs = [];
+        localStorage.setItem('asaLogs', JSON.stringify(logs));
+        renderLogs();
+      }
+    }
+
+    function renderExpenses() {
+      const list = document.getElementById('expensesList');
+      const totalEl = document.getElementById('expensesTotal');
+      const totalSpentEl = document.getElementById('totalSpent');
+
+      if (!expenses.length) {
+        list.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:20px 0;">No expenses recorded yet</p>';
+        totalEl.style.display = 'none';
+        return;
+      }
+
+      let html = '';
+      expenses.forEach((exp, index) => {
+        html += `
+          <div class="expense-item">
+            <div>
+              <div class="expense-note">${exp.note || 'No note'}</div>
+              <div class="expense-time">${exp.time}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="expense-amount">−₱${exp.amount}</div>
+              <button class="expense-delete" onclick="deleteExpense(${index})">✕</button>
+            </div>
+          </div>`;
+      });
+      list.innerHTML = html;
+
+      const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+      totalSpentEl.textContent = `₱${total}`;
+      totalEl.style.display = 'flex';
+    }
+
+    function deleteExpense(index) {
+      const exp = expenses[index];
+      if (confirm(`Delete this expense of ₱${exp.amount}?`)) {
+        overallProfit += exp.amount;
+        expenses.splice(index, 1);
+        localStorage.setItem('asaExpenses', JSON.stringify(expenses));
+        autoSaveDatabase();
+        saveProfit();
+        renderExpenses();
+        renderAllRecords();
+        showNotification(`Expense of ₱${exp.amount} removed`);
+        addLog(`Deleted expense of ₱${exp.amount} (${exp.note || 'No note'})`);
+      }
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('asaSavingsRecords');
+      if (saved) records = JSON.parse(saved);
+      else {
+        records = [{
+          id: 1,
+          name: "Savings Record 1",
+          startDate: "04/01/26",
+          weeks: [
+            { week: 1, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 2, target: 250, received: 200, status: "warning", missing: 50, date: "" },
+            { week: 3, target: 250, received: 250, status: "success", missing: 0, date: "" },
+            { week: 4, target: 250, received: 250, status: "success", missing: 0, date: "" }
+          ]
+        }];
+      }
+
+      const savedProfit = localStorage.getItem('asaOverallProfit');
+      if (savedProfit) overallProfit = parseFloat(savedProfit);
+
+      const savedLogs = localStorage.getItem('asaLogs');
+      if (savedLogs) logs = JSON.parse(savedLogs);
+
+      const savedExpenses = localStorage.getItem('asaExpenses');
+      if (savedExpenses) expenses = JSON.parse(savedExpenses);
+
+      document.getElementById('asOfDate').textContent = `As of ${getPHDate()}`;
+      renderAllRecords();
+      renderLogs();
+      renderExpenses();
+      music.play().catch(() => {});
+    }
+
+    function getPHDate() {
+      const options = { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' };
+      return new Date().toLocaleDateString('en-US', options);
+    }
+
+    function saveRecords() { localStorage.setItem('asaSavingsRecords', JSON.stringify(records)); autoSaveDatabase(); }
+    function saveProfit() { localStorage.setItem('asaOverallProfit', overallProfit); autoSaveDatabase(); }
+
+    let autoSaveTimer = null;
+    function autoSaveDatabase() {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        const data = {
+          savedAt: new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }),
+          overallProfit: overallProfit,
+          records: records,
+          expenses: expenses,
+          logs: logs
+        };
+        const text = JSON.stringify(data, null, 2);
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'database.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 1500);
+    }
+
+    function calculateActual(weeks) {
+      return weeks.reduce((sum, w) => sum + (w.received || 0), 0);
+    }
+
+    function formatDate(baseDate, weekNum, customDate = "") {
+      if (customDate) return customDate;
+      try {
+        const [m,d,y] = baseDate.split('/').map(Number);
+        const date = new Date(2000 + y, m-1, d);
+        date.setDate(date.getDate() + (weekNum-1)*7);
+        return date.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
+      } catch(e) { return "—"; }
+    }
+
+    function getStatusHTML(recordId, week) {
+      let html = `<div class="status-group">`;
+      html += `<button class="status-btn success" onclick="setStatus(${recordId}, ${week.week}, 'success')">✅ Received</button>`;
+      html += `<button class="status-btn warning" onclick="setStatus(${recordId}, ${week.week}, 'warning')">⚠️ Partial</button>`;
+      html += `<button class="status-btn pending" onclick="setStatus(${recordId}, ${week.week}, 'pending')">⏳ Pending</button>`;
+      if (week.status === "warning") {
+        html += `<input type="number" class="missing-input" value="${week.missing || 50}" onchange="updateMissing(${recordId}, ${week.week}, this.value)">`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    function renderRecord(record) {
+      const actual = calculateActual(record.weeks);
+      const expected = record.weeks.length * 250;
+      let html = `
+        <div class="record-card">
+          <div class="record-header">
+            <div class="record-name">${record.name}</div>
+            <div>
+              <button onclick="editRecord(${record.id})" style="background:#4a6cf7;color:white;border:none;padding:6px 14px;border-radius:8px;margin-right:6px;">Edit</button>
+              <button onclick="deleteRecord(${record.id})" style="background:#d9534f;color:white;border:none;padding:6px 14px;border-radius:8px;">Delete</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Week</th><th>Date</th><th>Target</th><th>Received</th><th>Status</th></tr></thead>
+            <tbody>`;
+      record.weeks.forEach(week => {
+        const currentDate = week.date || formatDate(record.startDate, week.week);
+        html += `
+          <tr>
+            <td><strong>Week ${week.week}</strong></td>
+            <td><input type="text" value="${currentDate}" onchange="updateWeekDate(${record.id}, ${week.week}, this.value)" style="width:95px;"></td>
+            <td>₱${week.target}</td>
+            <td><input type="number" value="${week.received}" onchange="updateReceived(${record.id}, ${week.week}, this.value)" style="width:90px;"></td>
+            <td>${getStatusHTML(record.id, week)}</td>
+          </tr>`;
+      });
+      html += `</tbody></table>
+        <div class="summary">
+          <div><div style="color:#A0A0CC;">EXPECTED</div><div style="font-size:1.8rem;font-weight:700;">₱${expected}</div></div>
+          <div><div style="color:#A0A0CC;">ACTUAL SAVED</div><div style="font-size:1.8rem;font-weight:700;color:${actual >= expected ? '#00E5B8' : '#FF8A8A'}">₱${actual}</div></div>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    function renderAllRecords() {
+      let html = '';
+      records.forEach(r => html += renderRecord(r));
+      document.getElementById('recordsContainer').innerHTML = html;
+
+      const total = records.reduce((sum, r) => sum + calculateActual(r.weeks), 0);
+      document.getElementById('totalSaved').textContent = `₱${total}`;
+      document.getElementById('overallProfit').textContent = `₱${Math.max(0, overallProfit)}`;
+    }
+
+    function updateReceived(recordId, weekNum, value) {
+      const record = records.find(r => r.id === recordId);
+      const week = record.weeks.find(w => w.week === weekNum);
+      if (week) {
+        week.received = parseFloat(value) || 0;
+        saveRecords();
+        renderAllRecords();
+        showNotification(`Week ${weekNum} updated`);
+        addLog(`Updated received for Week ${weekNum} in <strong>${record.name}</strong>`);
+      }
+    }
+
+    function updateWeekDate(recordId, weekNum, newDate) {
+      const record = records.find(r => r.id === recordId);
+      const week = record.weeks.find(w => w.week === weekNum);
+      if (week) {
+        week.date = newDate.trim();
+        saveRecords();
+        renderAllRecords();
+        addLog(`Updated date for Week ${weekNum} in <strong>${record.name}</strong>`);
+      }
+    }
+
+    function updateMissing(recordId, weekNum, value) {
+      const record = records.find(r => r.id === recordId);
+      const week = record.weeks.find(w => w.week === weekNum);
+      if (week) {
+        week.missing = parseFloat(value) || 0;
+        week.received = week.target - week.missing;
+        saveRecords();
+        renderAllRecords();
+      }
+    }
+
+    function setStatus(recordId, weekNum, newStatus) {
+      const record = records.find(r => r.id === recordId);
+      const week = record.weeks.find(w => w.week === weekNum);
+      if (!week) return;
+      week.status = newStatus;
+      if (newStatus === "success") { week.received = week.target; week.missing = 0; }
+      else if (newStatus === "pending") { week.received = 0; week.missing = 0; }
+      else if (newStatus === "warning") {
+        if (!week.missing) week.missing = 50;
+        week.received = week.target - week.missing;
+      }
+      saveRecords();
+      renderAllRecords();
+      showNotification(`Week ${weekNum} status changed`);
+      addLog(`Changed status of Week ${weekNum} to <strong>${newStatus}</strong> in <strong>${record.name}</strong>`);
+    }
+
+    function showAddModal() {
+      document.getElementById('recordName').value = `Savings Record ${records.length + 1}`;
+      document.getElementById('startDate').value = getNextMonday();
+      document.getElementById('addModal').style.display = 'flex';
+    }
+    function hideAddModal() { document.getElementById('addModal').style.display = 'none'; }
+
+    function addNewRecord() {
+      const name = document.getElementById('recordName').value.trim() || `Savings Record ${records.length + 1}`;
+      let startDate = document.getElementById('startDate').value.trim();
+      const numWeeks = parseInt(document.getElementById('numWeeks').value);
+      if (!startDate) startDate = getNextMonday();
+
+      const newRecord = {
+        id: Date.now(),
+        name: name,
+        startDate: startDate,
+        weeks: Array.from({length: numWeeks}, (_, i) => ({
+          week: i+1, target: 250, received: 0, status: "pending", missing: 0, date: ""
+        }))
+      };
+      records.push(newRecord);
+      saveRecords();
+      renderAllRecords();
+      hideAddModal();
+      showNotification(`Record "${name}" created`);
+      addLog(`Created new record: <strong>${name}</strong>`);
+    }
+
+    function editRecord(id) {
+      const record = records.find(r => r.id === id);
+      if (!record) return;
+      document.getElementById('editId').value = record.id;
+      document.getElementById('editName').value = record.name;
+      document.getElementById('editStartDate').value = record.startDate;
+      document.getElementById('editModal').style.display = 'flex';
+    }
+    function hideEditModal() { document.getElementById('editModal').style.display = 'none'; }
+    function saveEditRecord() {
+      const id = parseInt(document.getElementById('editId').value);
+      const record = records.find(r => r.id === id);
+      if (record) {
+        record.name = document.getElementById('editName').value.trim() || record.name;
+        record.startDate = document.getElementById('editStartDate').value.trim() || record.startDate;
+        saveRecords();
+        renderAllRecords();
+        hideEditModal();
+        showNotification("Record updated");
+      }
+    }
+
+    function deleteRecord(id) {
+      if (confirm("Delete this record?")) {
+        records = records.filter(r => r.id !== id);
+        saveRecords();
+        renderAllRecords();
+        showNotification("Record deleted");
+      }
+    }
+
+    function showEditProfitModal() {
+      document.getElementById('profitInput').value = overallProfit;
+      document.getElementById('editProfitModal').style.display = 'flex';
+    }
+    function hideEditProfitModal() { document.getElementById('editProfitModal').style.display = 'none'; }
+    function saveProfitAmount() {
+      const val = parseFloat(document.getElementById('profitInput').value);
+      if (!isNaN(val)) {
+        overallProfit = val;
+        saveProfit();
+        renderAllRecords();
+        hideEditProfitModal();
+        showNotification("Profit updated");
+      }
+    }
+
+    function showAddExpenseModal() {
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseNote').value = '';
+      document.getElementById('addExpenseModal').style.display = 'flex';
+    }
+    function hideAddExpenseModal() { document.getElementById('addExpenseModal').style.display = 'none'; }
+
+    function addExpense() {
+      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      if (!amount || amount <= 0) return alert("Enter valid amount");
+      const note = document.getElementById('expenseNote').value.trim();
+
+      const newExpense = {
+        amount: amount,
+        note: note || '',
+        time: new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+
+      expenses.unshift(newExpense);
+      localStorage.setItem('asaExpenses', JSON.stringify(expenses));
+      autoSaveDatabase();
+
+      overallProfit -= amount;
+      saveProfit();
+      renderAllRecords();
+      renderExpenses();
+      hideAddExpenseModal();
+      showNotification(`₱${amount} spent`);
+      addLog(`Spent ₱${amount} ${note ? `(${note})` : ''}`);
+    }
+
+    function getNextMonday() {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+      let days = (1 - now.getDay() + 7) % 7;
+      if (days === 0) days = 7;
+      const next = new Date(now);
+      next.setDate(now.getDate() + days);
+      return next.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'2-digit'});
+    }
+
+    function importDatabase(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!confirm("This will replace all current data with the file. Continue?")) {
+            event.target.value = "";
+            return;
+          }
+          if (data.records) { records = data.records; localStorage.setItem("asaSavingsRecords", JSON.stringify(records)); }
+          if (data.expenses) { expenses = data.expenses; localStorage.setItem("asaExpenses", JSON.stringify(expenses)); }
+          if (data.logs) { logs = data.logs; localStorage.setItem("asaLogs", JSON.stringify(logs)); }
+          if (data.overallProfit !== undefined) { overallProfit = data.overallProfit; localStorage.setItem("asaOverallProfit", overallProfit); }
+          renderAllRecords();
+          renderExpenses();
+          renderLogs();
+          showNotification("Data loaded from file!");
+          addLog("Imported data from database.txt");
+        } catch(err) {
+          alert("Could not read file. Make sure it is a valid database.txt exported from this app.");
+        }
+        event.target.value = "";
+      };
+      reader.readAsText(file);
+    }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
